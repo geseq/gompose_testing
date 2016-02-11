@@ -10,37 +10,40 @@ import (
 	"time"
 )
 
-type TestContext struct {
+type testContext struct {
 	built   bool
 	ip      []byte
 	logFile *os.File
 	testNum int
 }
 
-func RunTest(t *testing.T, c *TestContext, port string, testFunc func([]byte)) {
+var context testContext
+
+// RunTest executes the passed function using Compose
+func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 	if testing.Short() {
 		t.Skip("skipping end-to-end test in short mode.")
 	}
 
 	// build project if not yet built
-	if !c.built {
+	if !context.built {
 		if err := exec.Command("./build.sh").Run(); err != nil {
 			t.Fatal("build failed: ", err)
 		}
-		c.built = true
+		context.built = true
 	}
 
 	// get Docker IP and cache it
-	if len(c.ip) == 0 {
+	if len(context.ip) == 0 {
 		dkm, err := exec.Command("docker-machine", "active").Output()
 		if err == nil { // active Docker Machine detected, use it
 			byteIP, err := exec.Command("docker-machine", "ip", string(bytes.TrimSpace(dkm))).Output()
 			if err != nil {
 				t.Fatal(err)
 			}
-			c.ip = bytes.TrimSpace(byteIP)
+			context.ip = bytes.TrimSpace(byteIP)
 		} else { // no active docker machine, assume Docker is running natively
-			c.ip = []byte("127.0.0.1")
+			context.ip = []byte("127.0.0.1")
 		}
 	}
 
@@ -56,24 +59,24 @@ func RunTest(t *testing.T, c *TestContext, port string, testFunc func([]byte)) {
 
 	// log Compose output
 	// TODO timestamps
-	if c.logFile == nil {
-		c.logFile, _ = os.Create("test.log")
+	if context.logFile == nil {
+		context.logFile, _ = os.Create("test.log")
 		cmd := exec.Command("docker-compose", "logs", "--no-color")
-		cmd.Stdout = c.logFile
-		cmd.Stderr = c.logFile
+		cmd.Stdout = context.logFile
+		cmd.Stderr = context.logFile
 		if err := cmd.Start(); err != nil {
 			t.Fatal(err)
 		}
 	}
-	c.testNum++
-	c.logFile.WriteString(fmt.Sprintf("--- test %v start\n", c.testNum))
-	defer c.logFile.WriteString(fmt.Sprintf("--- test %v end\n", c.testNum))
+	context.testNum++
+	context.logFile.WriteString(fmt.Sprintf("--- test %v start\n", context.testNum))
+	defer context.logFile.WriteString(fmt.Sprintf("--- test %v end\n", context.testNum))
 
 	// poll until server is healthy
 	start := time.Now()
 	for func() bool {
 		// TODO don't pass in port. either infer it or use context.
-		resp, err := http.Head(fmt.Sprintf("http://%s%v/health_check", c.ip, port))
+		resp, err := http.Head(fmt.Sprintf("http://%s%v/health_check", context.ip, port))
 		if err == nil && resp.StatusCode == 204 {
 			return false
 		}
@@ -86,5 +89,5 @@ func RunTest(t *testing.T, c *TestContext, port string, testFunc func([]byte)) {
 	}
 
 	// Run test
-	testFunc(c.ip)
+	testFunc(context.ip)
 }
