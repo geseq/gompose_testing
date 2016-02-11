@@ -49,11 +49,17 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 
 	// bring up Compose
 	if out, err := exec.Command("docker-compose", "up", "-d").CombinedOutput(); err != nil {
-		t.Fatalf("Docker compose failed to start: %s\n", out)
+		t.Fatalf("Docker Compose failed to start: %s\n", out)
 	}
 	defer func() {
-		if out, err := exec.Command("docker-compose", "down").CombinedOutput(); err != nil {
-			t.Fatalf("Docker compose failed to stop: %s\n", out)
+		if err := exec.Command("docker-compose", "down").Run(); err != nil {
+			// Could be Compose version 1.5.x or earlier. Fallback to other commands.
+			if out, err := exec.Command("docker-compose", "stop").CombinedOutput(); err != nil {
+				t.Fatalf("Docker Compose failed to stop: %s\n", out)
+			}
+			if out, err := exec.Command("docker-compose", "rm", "-f").CombinedOutput(); err != nil {
+				t.Fatalf("Docker Compose failed to remove containers: %s\n", out)
+			}
 		}
 	}()
 
