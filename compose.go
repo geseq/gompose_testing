@@ -48,11 +48,11 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 	}
 
 	// bring up Compose
-	if out, err := exec.Command("docker-compose", "up", "-d").Output(); err != nil {
+	if out, err := exec.Command("docker-compose", "up", "-d").CombinedOutput(); err != nil {
 		t.Fatalf("Docker compose failed to start: %s\n", out)
 	}
 	defer func() {
-		if out, err := exec.Command("docker-compose", "down").Output(); err != nil {
+		if out, err := exec.Command("docker-compose", "down").CombinedOutput(); err != nil {
 			t.Fatalf("Docker compose failed to stop: %s\n", out)
 		}
 	}()
