@@ -53,7 +53,7 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 	}
 	defer func() {
 		if err := exec.Command("docker-compose", "down").Run(); err != nil {
-			// Could be Compose version 1.5.x or earlier. Fallback to other commands.
+			// could be Compose version 1.5.x or earlier. fallback to other commands.
 			if out, err := exec.Command("docker-compose", "stop").CombinedOutput(); err != nil {
 				t.Fatalf("Docker Compose failed to stop: %s\n", out)
 			}
@@ -67,13 +67,15 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 	// TODO timestamps
 	if context.logFile == nil {
 		context.logFile, _ = os.Create("test.log")
-		cmd := exec.Command("docker-compose", "logs", "--no-color")
-		cmd.Stdout = context.logFile
-		cmd.Stderr = context.logFile
-		if err := cmd.Start(); err != nil {
-			t.Fatal(err)
-		}
 	}
+	cmd := exec.Command("docker-compose", "logs", "--no-color")
+	cmd.Stdout = context.logFile
+	cmd.Stderr = context.logFile
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer cmd.Process.Kill()
+
 	context.testNum++
 	context.logFile.WriteString(fmt.Sprintf("--- test %v start\n", context.testNum))
 	defer context.logFile.WriteString(fmt.Sprintf("--- test %v end\n", context.testNum))
