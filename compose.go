@@ -47,38 +47,60 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 		}
 	}
 
-	// bring up Compose
-	if out, err := exec.Command("docker-compose", "up", "-d").CombinedOutput(); err != nil {
-		t.Fatalf("Docker Compose failed to start: %s\n", out)
-	}
-	defer func() {
-		if err := exec.Command("docker-compose", "down").Run(); err != nil {
-			// could be Compose version 1.5.x or earlier. fallback to other commands.
-			if out, err := exec.Command("docker-compose", "stop").CombinedOutput(); err != nil {
-				t.Fatalf("Docker Compose failed to stop: %s\n", out)
-			}
-			if out, err := exec.Command("docker-compose", "rm", "-f").CombinedOutput(); err != nil {
-				t.Fatalf("Docker Compose failed to remove containers: %s\n", out)
-			}
-		}
-	}()
-
 	// log Compose output
 	// TODO timestamps
 	if context.logFile == nil {
 		context.logFile, _ = os.Create("test.log")
 	}
-	cmd := exec.Command("docker-compose", "logs", "--no-color")
+	defer func() {
+		if err := context.logFile.Sync(); err != nil {
+			t.Fatal("error syncing logfile: ", err)
+		}
+	}()
+
+	// bring up Compose
+	cmd := exec.Command("docker-compose", "up", "--no-color")
 	cmd.Stdout = context.logFile
 	cmd.Stderr = context.logFile
 	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
+		t.Fatal("error starting Compose: ", err)
 	}
-	defer cmd.Process.Kill()
+	defer func() {
+		// send interrupt signal
+		if err := cmd.Process.Signal(os.Interrupt); err != nil {
+			t.Fatal("error exiting Compose: ", err)
+		}
 
+		// wait for Compose to exit
+		done := make(chan error, 1)
+		go func() {
+			done <- cmd.Wait()
+		}()
+		select {
+		case <-time.After(5 * time.Second):
+			// kill if it times out
+			if err := cmd.Process.Kill(); err != nil {
+				t.Fatal("failed to kill compose: ", err)
+			}
+			t.Fatal("Compose killed as timeout reached")
+		case err := <-done:
+			if err != nil {
+				t.Log("Compose exited with error: ", err)
+			} else {
+				t.Log("Compose gracefully exited")
+			}
+		}
+		if out, err := exec.Command("docker-compose", "rm", "-f").CombinedOutput(); err != nil {
+			t.Fatal("error removing containers: ", out)
+		}
+	}()
+
+	// record test sequence number
 	context.testNum++
 	context.logFile.WriteString(fmt.Sprintf("--- test %v start\n", context.testNum))
-	defer context.logFile.WriteString(fmt.Sprintf("--- test %v end\n", context.testNum))
+	defer func() {
+		context.logFile.WriteString(fmt.Sprintf("--- test %v end\n", context.testNum))
+	}()
 
 	// poll until server is healthy
 	start := time.Now()
