@@ -99,6 +99,8 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 	context.testNum++
 	context.logFile.WriteString(fmt.Sprintf("--- test %v start\n", context.testNum))
 	defer func() {
+		time.Sleep(time.Millisecond * 100) // Ugly hack to stop log output from being cut off prematurely
+
 		context.logFile.WriteString(fmt.Sprintf("--- test %v end\n", context.testNum))
 	}()
 
