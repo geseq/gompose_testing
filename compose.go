@@ -86,8 +86,6 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 		case err := <-done:
 			if err != nil {
 				t.Log("Compose exited with error: ", err)
-			} else {
-				t.Log("Compose gracefully exited")
 			}
 		}
 		if out, err := exec.Command("docker-compose", "rm", "-f").CombinedOutput(); err != nil {
