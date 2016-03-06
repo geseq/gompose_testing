@@ -12,6 +12,7 @@ import (
 
 type testContext struct {
 	built   bool
+	pulled  bool
 	ip      []byte
 	logFile *os.File
 	testNum int
@@ -58,8 +59,19 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 		}
 	}()
 
+	// pull images if not yet pulled
+	if !context.pulled {
+		context.logFile.WriteString("pulling Compose images...")
+		if out, err := exec.Command("docker-compose", "pull").CombinedOutput(); err != nil {
+			context.logFile.Write(out)
+			t.Fatal("error pulling Compose images: ", err)
+		}
+		context.pulled = true
+		context.logFile.WriteString("done\n")
+	}
+
 	// bring up Compose
-	cmd := exec.Command("docker-compose", "up", "--no-color")
+	cmd := exec.Command("docker-compose", "up", "--force-recreate", "--no-color")
 	cmd.Stdout = context.logFile
 	cmd.Stderr = context.logFile
 	if err := cmd.Start(); err != nil {
@@ -112,7 +124,7 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 		}
 		return true
 	}() {
-		if time.Now().Sub(start) > time.Second*60 {
+		if time.Now().Sub(start) > time.Second*30 {
 			t.Fatal("timed out waiting for server to start.")
 		}
 		time.Sleep(time.Millisecond * 250)
