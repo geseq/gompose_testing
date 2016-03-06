@@ -112,7 +112,7 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 		}
 		return true
 	}() {
-		if time.Now().Sub(start) > time.Second*30 {
+		if time.Now().Sub(start) > time.Second*60 {
 			t.Fatal("timed out waiting for server to start.")
 		}
 		time.Sleep(time.Millisecond * 250)
