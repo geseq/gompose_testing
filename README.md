@@ -1,2 +1,2 @@
-# go_compose
-Go support library for Docker Compose
+# go_compose_testing
+End-to-end testing in Go using Docker Compose

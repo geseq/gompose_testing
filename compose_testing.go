@@ -1,4 +1,4 @@
-package compose
+package composeTesting
 
 import (
 	"bytes"
@@ -20,8 +20,8 @@ type testContext struct {
 
 var context testContext
 
-// RunTest executes the passed function using Compose
-func RunTest(t *testing.T, port string, testFunc func([]byte)) {
+// Run executes the passed function using Compose
+func Run(t *testing.T, port string, testFunc func([]byte)) {
 	if testing.Short() {
 		t.Skip("skipping end-to-end test in short mode.")
 	}
