@@ -28,8 +28,8 @@ func RunTest(t *testing.T, port string, testFunc func([]byte)) {
 
 	// build project if not yet built
 	if !context.built {
-		if err := exec.Command("./build.sh").Run(); err != nil {
-			t.Fatal("build failed: ", err)
+		if err := exec.Command("make").Run(); err != nil {
+			t.Fatal("make failed: ", err)
 		}
 		context.built = true
 	}
