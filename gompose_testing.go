@@ -1,6 +1,4 @@
-package composeTesting
-
-// TODO rename package or file
+package gomposeTesting
 
 import (
 	"bytes"
