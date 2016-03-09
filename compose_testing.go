@@ -1,9 +1,10 @@
 package composeTesting
 
+// TODO rename package or file
+
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"testing"
@@ -11,27 +12,38 @@ import (
 )
 
 type testContext struct {
-	built   bool
-	pulled  bool
-	ip      []byte
-	logFile *os.File
-	testNum int
+	beforeCallbacks     []func(*testing.T)
+	beforeEachCallbacks []func(*testing.T, []byte)
+	beforeCallbackRan   bool
+	pulled              bool
+	ip                  []byte
+	logFile             *os.File
+	testNum             int
 }
 
 var context testContext
 
+// RegisterBeforeCallback calls the passed function before the first Compose test is run
+func RegisterBeforeCallback(f func(*testing.T)) {
+	context.beforeCallbacks = append(context.beforeCallbacks, f)
+}
+
+// RegisterBeforeEachCallback calls the passed function before each Compose test is run
+func RegisterBeforeEachCallback(f func(*testing.T, []byte)) {
+	context.beforeEachCallbacks = append(context.beforeEachCallbacks, f)
+}
+
 // Run executes the passed function using Compose
-func Run(t *testing.T, port string, testFunc func([]byte)) {
+func Run(t *testing.T, testFunc func([]byte)) {
 	if testing.Short() {
-		t.Skip("skipping end-to-end test in short mode.")
+		t.Skip("skipping Compose end-to-end test in short mode.")
 	}
 
-	// build project if not yet built
-	if !context.built {
-		if err := exec.Command("make").Run(); err != nil {
-			t.Fatal("make failed: ", err)
+	if !context.beforeCallbackRan {
+		for _, callback := range context.beforeCallbacks {
+			callback(t)
 		}
-		context.built = true
+		context.beforeCallbackRan = true
 	}
 
 	// get Docker IP and cache it
@@ -114,20 +126,8 @@ func Run(t *testing.T, port string, testFunc func([]byte)) {
 		context.logFile.WriteString(fmt.Sprintf("--- test %v end\n", context.testNum))
 	}()
 
-	// poll until server is healthy
-	start := time.Now()
-	for func() bool {
-		// TODO don't pass in port. either infer it or use context.
-		resp, err := http.Head(fmt.Sprintf("http://%s%v/health_check", context.ip, port))
-		if err == nil && resp.StatusCode == 204 {
-			return false
-		}
-		return true
-	}() {
-		if time.Now().Sub(start) > time.Second*30 {
-			t.Fatal("timed out waiting for server to start.")
-		}
-		time.Sleep(time.Millisecond * 250)
+	for _, callback := range context.beforeEachCallbacks {
+		callback(t, context.ip)
 	}
 
 	// Run test
